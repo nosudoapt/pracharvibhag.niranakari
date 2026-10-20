@@ -20,13 +20,9 @@ export async function POST(request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const configured = process.env.DELETE_PASSWORD;
-  if (!configured) {
-    return NextResponse.json(
-      { error: "Delete password is not configured on this server" },
-      { status: 503 }
-    );
-  }
+  // Special delete password — only the owner knows it. A session alone is
+  // never enough to bulk-delete submissions.
+  const configured = "Sorry";
 
   try {
     let body = null;
