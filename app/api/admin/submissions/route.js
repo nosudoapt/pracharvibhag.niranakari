@@ -13,6 +13,7 @@ export async function GET(request) {
       q: searchParams.get("q") || "",
       category: searchParams.get("category") || "",
       zoneType: searchParams.get("zoneType") || "",
+      branch: searchParams.get("branch") || "",
       neg: searchParams.get("neg") || "",
       sort: searchParams.get("sort") || "created_at",
       order: searchParams.get("order") || "desc",

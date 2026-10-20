@@ -77,6 +77,7 @@ function gateFor(request, pathname, hasSession, aud) {
 export const config = {
   matcher: [
     "/",
+    "/home.html",
     "/feedback",
     "/find-pracharak",
     "/admin/:path*",

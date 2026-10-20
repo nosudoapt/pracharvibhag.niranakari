@@ -344,6 +344,17 @@ export default function AdminDashboard() {
   const [view, setView] = useState("dashboard");
   const [negFilters, setNegFilters] = useState([]);
   const [me, setMe] = useState(null);
+  const [facetsLoading, setFacetsLoading] = useState(true);
+  const [branches, setBranches] = useState([]);
+  const [zoneProgress, setZoneProgress] = useState([]);
+  const [pie, setPie] = useState(null);
+  const [branchFilter, setBranchFilter] = useState("all");
+  const [zoneStatusFilter, setZoneStatusFilter] = useState("all");
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [deletePwd, setDeletePwd] = useState("");
+  const [deleteErr, setDeleteErr] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const toastTimer = useRef(null);
 
@@ -385,6 +396,7 @@ export default function AdminDashboard() {
         q,
         category: effectiveCategory,
         zoneType,
+        branch: branchFilter,
         sort,
         order,
         page: String(page),
@@ -412,7 +424,7 @@ export default function AdminDashboard() {
     } finally {
       setRowsLoading(false);
     }
-  }, [q, category, view, negFilters, zoneType, sort, order, page, limit, router]);
+  }, [q, category, view, negFilters, zoneType, branchFilter, sort, order, page, limit, router]);
 
   useEffect(() => {
     fetchStats();
@@ -429,6 +441,30 @@ export default function AdminDashboard() {
       .catch(() => {});
   }, []);
 
+  const fetchFacets = useCallback(async () => {
+    setFacetsLoading(true);
+    try {
+      const res = await fetch("/api/admin/facets");
+      if (res.status === 401) {
+        router.push("/admin/login");
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) return;
+      setBranches(data.branches || []);
+      setZoneProgress(data.zones || []);
+      setPie(data.pie || null);
+    } catch {
+      // non-fatal — filters and charts just stay empty
+    } finally {
+      setFacetsLoading(false);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    fetchFacets();
+  }, [fetchFacets]);
+
   useEffect(() => {
     const t = setTimeout(() => setQ(qInput.trim()), 350);
     return () => clearTimeout(t);
@@ -436,7 +472,16 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     setPage(1);
-  }, [q, category, zoneType, limit, view, negFilters]);
+  }, [q, category, zoneType, branchFilter, limit, view, negFilters]);
+
+  // Drop selected ids that are no longer present in the loaded rows.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (!prev.size) return prev;
+      const next = new Set([...prev].filter((id) => rows.some((r) => r.id === id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [rows]);
 
   useEffect(() => () => clearTimeout(toastTimer.current), []);
 
@@ -473,6 +518,52 @@ export default function AdminDashboard() {
 
   function toggleNegFilter(id) {
     setNegFilters((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  function toggleSelect(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) => {
+      if (prev.size === rows.length && rows.length > 0) return new Set();
+      return new Set(rows.map((r) => r.id));
+    });
+  }
+
+  async function handleBulkDelete() {
+    setDeleting(true);
+    setDeleteErr("");
+    try {
+      const res = await fetch("/api/admin/submissions/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [...selectedIds], password: deletePwd }),
+      });
+      if (res.status === 401) {
+        router.push("/admin/login");
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) {
+        setDeleteErr(data.error || "Delete failed");
+        return;
+      }
+      setDeleteModal(false);
+      setDeletePwd("");
+      setSelectedIds(new Set());
+      showToast(`Deleted ${data.deleted} submission${data.deleted === 1 ? "" : "s"}`);
+      await Promise.all([fetchRows(), fetchFacets(), fetchStats()]);
+    } catch {
+      setDeleteErr("Network error");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function handleAttendanceSync() {
@@ -732,6 +823,15 @@ export default function AdminDashboard() {
               ))}
               {topZones.length === 0 && <p style={s.muted}>No data yet.</p>}
             </div>
+
+            <FeedbackPie pie={pie} loading={facetsLoading} />
+
+            <ZoneProgress
+              zones={zoneProgress}
+              loading={facetsLoading}
+              statusFilter={zoneStatusFilter}
+              onStatusFilter={setZoneStatusFilter}
+            />
           </div>
 
           <div style={s.exportRow}>
@@ -817,6 +917,12 @@ export default function AdminDashboard() {
               <option value="general">General</option>
               <option value="special">Special</option>
             </select>
+            <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} style={s.select} aria-label="Filter by branch">
+              <option value="all">All branches</option>
+              {branches.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
             <select value={limit} onChange={(e) => setLimit(Number(e.target.value))} style={s.select} aria-label="Rows per page">
               <option value={20}>20 / page</option>
               <option value={50}>50 / page</option>
@@ -825,6 +931,16 @@ export default function AdminDashboard() {
             <span style={s.resultCount}>
               {total} result{total === 1 ? "" : "s"}
             </span>
+            {selectedIds.size > 0 && (
+              <button
+                type="button"
+                onClick={() => { setDeletePwd(""); setDeleteErr(""); setDeleteModal(true); }}
+                className="admin-chip"
+                style={{ ...s.chip, ...s.deleteSelectedBtn }}
+              >
+                Delete selected ({selectedIds.size})
+              </button>
+            )}
           </div>
 
           {view === "gbm-ebm" ? (
@@ -832,6 +948,15 @@ export default function AdminDashboard() {
               <table style={s.table}>
                 <thead>
                   <tr>
+                    <th style={{ ...s.th, width: 34 }}>
+                      <input
+                        type="checkbox"
+                        aria-label="Select all rows on this page"
+                        checked={rows.length > 0 && selectedIds.size === rows.length}
+                        onChange={toggleSelectAll}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </th>
                     <th style={s.th}>Reg No</th>
                     <SortHeader col="name" label="Name" sort={sort} order={order} onSort={handleSort} />
                     <SortHeader col="phone" label="Phone" sort={sort} order={order} onSort={handleSort} />
@@ -844,17 +969,25 @@ export default function AdminDashboard() {
                 </thead>
                 <tbody>
                   {rowsLoading ? (
-                    <tr><td colSpan={8} style={s.emptyCell}>Loading…</td></tr>
+                    <tr><td colSpan={9} style={s.emptyCell}>Loading…</td></tr>
                   ) : rowsError ? (
-                    <tr><td colSpan={8} style={s.emptyCell}><span style={s.error}>{rowsError}</span></td></tr>
+                    <tr><td colSpan={9} style={s.emptyCell}><span style={s.error}>{rowsError}</span></td></tr>
                   ) : rows.length === 0 ? (
-                    <tr><td colSpan={8} style={s.emptyCell}>No registrations match.</td></tr>
+                    <tr><td colSpan={9} style={s.emptyCell}>No registrations match.</td></tr>
                   ) : (
                     rows.map((row) => (
                       <tr key={row.id} className="admin-tr" style={s.tr} tabIndex={0}
                         onClick={() => setSelected(row)}
                         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(row); } }}
                       >
+                        <td style={s.td} onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${row.name}`}
+                            checked={selectedIds.has(row.id)}
+                            onChange={() => toggleSelect(row.id)}
+                          />
+                        </td>
                         <td style={{ ...s.td, fontWeight: 800 }}>{row.reg_no || "—"}</td>
                         <td style={s.td}>{row.name}</td>
                         <td style={s.td}>{row.phone}</td>
@@ -880,6 +1013,15 @@ export default function AdminDashboard() {
               <table style={s.table}>
                 <thead>
                   <tr>
+                    <th style={{ ...s.th, width: 34 }}>
+                      <input
+                        type="checkbox"
+                        aria-label="Select all rows on this page"
+                        checked={rows.length > 0 && selectedIds.size === rows.length}
+                        onChange={toggleSelectAll}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </th>
                     <SortHeader col="created_at" label="Time" sort={sort} order={order} onSort={handleSort} />
                     <SortHeader col="name" label="Name" sort={sort} order={order} onSort={handleSort} />
                     <SortHeader col="phone" label="Phone" sort={sort} order={order} onSort={handleSort} />
@@ -888,17 +1030,25 @@ export default function AdminDashboard() {
                 </thead>
                 <tbody>
                   {rowsLoading ? (
-                    <tr><td colSpan={4} style={s.emptyCell}>Loading…</td></tr>
+                    <tr><td colSpan={5} style={s.emptyCell}>Loading…</td></tr>
                   ) : rowsError ? (
-                    <tr><td colSpan={4} style={s.emptyCell}><span style={s.error}>{rowsError}</span></td></tr>
+                    <tr><td colSpan={5} style={s.emptyCell}><span style={s.error}>{rowsError}</span></td></tr>
                   ) : rows.length === 0 ? (
-                    <tr><td colSpan={4} style={s.emptyCell}>No submissions match.</td></tr>
+                    <tr><td colSpan={5} style={s.emptyCell}>No submissions match.</td></tr>
                   ) : (
                     rows.map((row) => (
                       <tr key={row.id} className="admin-tr" style={s.tr} tabIndex={0}
                         onClick={() => setSelected(row)}
                         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(row); } }}
                       >
+                        <td style={s.td} onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${row.name}`}
+                            checked={selectedIds.has(row.id)}
+                            onChange={() => toggleSelect(row.id)}
+                          />
+                        </td>
                         <td style={s.td}>{formatDate(row.created_at)}</td>
                         <td style={s.td}>{row.name}</td>
                         <td style={s.td}>{row.phone}</td>
@@ -984,6 +1134,43 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {deleteModal && (
+        <div style={s.drawerWrap} role="dialog" aria-modal="true" aria-label="Confirm bulk delete">
+          <div style={s.drawerBackdrop} onClick={() => !deleting && setDeleteModal(false)} />
+          <div style={{ ...s.drawer, maxWidth: 420, height: "auto", minHeight: 0 }}>
+            <div style={s.drawerHead}>
+              <h2 style={s.drawerTitle}>Delete {selectedIds.size} submission{selectedIds.size === 1 ? "" : "s"}?</h2>
+              <button type="button" onClick={() => !deleting && setDeleteModal(false)} style={s.drawerClose} aria-label="Close">✕</button>
+            </div>
+            <div style={{ ...s.drawerBody, paddingTop: 16 }}>
+              <p style={s.muted}>
+                This permanently removes the selected rows. Only you can do this —
+                enter the special delete password to confirm.
+              </p>
+              <input
+                type="password"
+                autoFocus
+                placeholder="Delete password"
+                value={deletePwd}
+                onChange={(e) => { setDeletePwd(e.target.value); setDeleteErr(""); }}
+                onKeyDown={(e) => { if (e.key === "Enter" && deletePwd && !deleting) handleBulkDelete(); }}
+                style={{ ...s.search, width: "100%", marginTop: 12 }}
+                aria-label="Delete password"
+              />
+              {deleteErr && <p style={{ ...s.error, marginTop: 10 }}>{deleteErr}</p>}
+              <div style={{ display: "flex", gap: 10, marginTop: 16, justifyContent: "flex-end" }}>
+                <button type="button" onClick={() => setDeleteModal(false)} disabled={deleting} style={s.select}>
+                  Cancel
+                </button>
+                <button type="button" onClick={handleBulkDelete} disabled={deleting || !deletePwd} style={s.bulkDeleteBtn}>
+                  {deleting ? "Deleting…" : "Delete permanently"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast && (
         <div style={toast.type === "error" ? s.toastError : s.toast} role="status">
           {toast.msg}
@@ -991,6 +1178,107 @@ export default function AdminDashboard() {
       )}
       </div>
     </main>
+    </div>
+  );
+}
+
+function FeedbackPie({ pie, loading }) {
+  const parts = pie
+    ? [
+        { key: "mahila", label: "Mahila", count: pie.mahila || 0, color: "#7C3AED" },
+        { key: "bal", label: "Bal", count: pie.bal || 0, color: "#2563EB" },
+        { key: "ems", label: "EMS", count: pie.ems || 0, color: "#059669" },
+      ]
+    : [];
+  const total = parts.reduce((sum, p) => sum + p.count, 0);
+  const R = 54;
+  const C = 2 * Math.PI * R;
+  let offset = 0;
+
+  return (
+    <div style={s.chartCard}>
+      <h3 style={s.sectionTitle}>Bal Mahila vs EMS</h3>
+      {loading ? (
+        <p style={s.muted}>Loading…</p>
+      ) : total === 0 ? (
+        <p style={s.muted}>No feedback yet.</p>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 22, flexWrap: "wrap" }}>
+          <svg width={140} height={140} viewBox="0 0 140 140" role="img" aria-label="Feedback by type">
+            <circle cx="70" cy="70" r={R} fill="none" stroke="#EDF1F6" strokeWidth={22} />
+            {parts.map((p) => {
+              if (p.count === 0) return null;
+              const frac = p.count / total;
+              const dash = `${frac * C} ${C}`;
+              const el = (
+                <circle
+                  key={p.key}
+                  cx="70" cy="70" r={R} fill="none"
+                  stroke={p.color} strokeWidth={22}
+                  strokeDasharray={dash}
+                  strokeDashoffset={-offset * C}
+                  transform="rotate(-90 70 70)"
+                >
+                  <title>{`${p.label}: ${p.count} (${Math.round(frac * 100)}%)`}</title>
+                </circle>
+              );
+              offset += frac;
+              return el;
+            })}
+            <text x="70" y="66" textAnchor="middle" fontSize="22" fontWeight="800" fill="#1D3557">{total}</text>
+            <text x="70" y="84" textAnchor="middle" fontSize="10" fill="#7A8699">total</text>
+          </svg>
+          <div>
+            {parts.map((p) => (
+              <div key={p.key} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <span style={{ width: 12, height: 12, borderRadius: 3, background: p.color, flexShrink: 0 }} />
+                <span style={{ fontSize: 13, color: "#33445C", minWidth: 52 }}>{p.label}</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: "#1D3557" }}>{p.count}</span>
+                <span style={{ fontSize: 12, color: "#7A8699" }}>({Math.round((p.count / total) * 100)}%)</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ZoneProgress({ zones, loading, statusFilter, onStatusFilter }) {
+  const shown = (zones || []).filter((z) => {
+    if (statusFilter === "done") return z.done;
+    if (statusFilter === "pending") return !z.done;
+    return true;
+  });
+  const doneCount = (zones || []).filter((z) => z.done).length;
+
+  return (
+    <div style={s.chartCard}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <h3 style={{ ...s.sectionTitle, marginBottom: 0 }}>
+          Zone completion — {doneCount}/{(zones || []).length} done
+        </h3>
+        <select value={statusFilter} onChange={(e) => onStatusFilter(e.target.value)} style={{ ...s.select, padding: "6px 10px", fontSize: 13 }} aria-label="Filter zones by status">
+          <option value="all">All zones</option>
+          <option value="done">Done only</option>
+          <option value="pending">Pending only</option>
+        </select>
+      </div>
+      {loading ? (
+        <p style={{ ...s.muted, marginTop: 12 }}>Loading…</p>
+      ) : (
+        <div style={s.zoneList}>
+          {shown.map((z) => (
+            <div key={`${z.kind}-${z.zoneNo}`} style={s.zoneRow}>
+              <span style={s.zoneNo}>{z.zoneNo}</span>
+              <span style={s.zoneName} title={z.zoneName}>{z.zoneName}</span>
+              <span style={{ ...s.zoneCount, opacity: z.done ? 1 : 0.55 }}>{z.count}</span>
+              {z.done ? <span style={s.zoneDoneBadge}>Done</span> : <span style={s.zonePendingBadge}>Pending</span>}
+            </div>
+          ))}
+          {shown.length === 0 && <p style={s.muted}>No zones match.</p>}
+        </div>
+      )}
     </div>
   );
 }
@@ -1155,6 +1443,19 @@ const s = {
   hTrack: { flex: 1, height: 14, background: "#EEF2F7", borderRadius: 999, overflow: "hidden" },
   hFill: { height: "100%", borderRadius: 999, background: "linear-gradient(90deg, #60A5FA, #2563EB)" },
   hCount: { width: 42, flexShrink: 0, textAlign: "right", fontWeight: 800, color: "#334155", fontSize: "0.86rem", fontVariantNumeric: "tabular-nums" },
+
+  // ---------- Zone completion list ----------
+  zoneList: { marginTop: 12, maxHeight: 300, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4, paddingRight: 4 },
+  zoneRow: { display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", borderRadius: 10, background: "#F7F9FC" },
+  zoneNo: { fontWeight: 800, fontSize: "0.8rem", color: "#1D3557", width: 30, flexShrink: 0, fontVariantNumeric: "tabular-nums" },
+  zoneName: { flex: 1, fontSize: "0.85rem", color: "#334155", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+  zoneCount: { fontWeight: 800, fontSize: "0.85rem", color: "#1D3557", fontVariantNumeric: "tabular-nums" },
+  zoneDoneBadge: { flexShrink: 0, fontSize: "0.68rem", fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "#0B7A44", background: "rgba(47,158,126,0.14)", borderRadius: 999, padding: "3px 10px" },
+  zonePendingBadge: { flexShrink: 0, fontSize: "0.68rem", fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "#8A94A6", background: "#EAEDF2", borderRadius: 999, padding: "3px 10px" },
+
+  // ---------- Bulk delete ----------
+  deleteSelectedBtn: { color: "#fff", background: "#B02A2A", borderColor: "#B02A2A", fontWeight: 700 },
+  bulkDeleteBtn: { color: "#fff", background: "#B02A2A", border: "none", borderRadius: 10, padding: "10px 16px", fontWeight: 800, fontSize: "0.85rem", cursor: "pointer", opacity: 1 },
 
   // ---------- Controls ----------
   exportRow: { display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap", alignItems: "center" },
