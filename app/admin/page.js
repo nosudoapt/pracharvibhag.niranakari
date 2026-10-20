@@ -952,6 +952,16 @@ export default function AdminDashboard() {
             <span style={s.resultCount}>
               {total} result{total === 1 ? "" : "s"}
             </span>
+            <button
+              type="button"
+              className="admin-chip"
+              style={{ ...s.chip, ...(order === "asc" ? {} : s.chipActive) }}
+              onClick={() => setOrder(order === "asc" ? "desc" : "asc")}
+              aria-label="Toggle sort order"
+              title={`Flip ${sort} sort order`}
+            >
+              {order === "asc" ? "↑ Ascending" : "↓ Descending"}
+            </button>
             {selectedIds.size > 0 && (
               <button
                 type="button"
