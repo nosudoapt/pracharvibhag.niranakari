@@ -349,6 +349,7 @@ export default function AdminDashboard() {
   const [zoneProgress, setZoneProgress] = useState([]);
   const [pie, setPie] = useState(null);
   const [branchFilter, setBranchFilter] = useState("all");
+  const [zoneFilter, setZoneFilter] = useState("all");
   const [zoneStatusFilter, setZoneStatusFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [deleteModal, setDeleteModal] = useState(false);
@@ -396,6 +397,7 @@ export default function AdminDashboard() {
         q,
         category: effectiveCategory,
         zoneType,
+        zone: zoneFilter,
         branch: branchFilter,
         sort,
         order,
@@ -424,7 +426,7 @@ export default function AdminDashboard() {
     } finally {
       setRowsLoading(false);
     }
-  }, [q, category, view, negFilters, zoneType, branchFilter, sort, order, page, limit, router]);
+  }, [q, category, view, negFilters, zoneType, zoneFilter, branchFilter, sort, order, page, limit, router]);
 
   useEffect(() => {
     fetchStats();
@@ -472,7 +474,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     setPage(1);
-  }, [q, category, zoneType, branchFilter, limit, view, negFilters]);
+  }, [q, category, zoneType, zoneFilter, branchFilter, limit, view, negFilters]);
 
   // Drop selected ids that are no longer present in the loaded rows.
   useEffect(() => {
@@ -653,6 +655,15 @@ export default function AdminDashboard() {
   const topMax = useMemo(() => Math.max(1, ...topZones.map((z) => z.count)), [topZones]);
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
+
+  const zoneOptions = useMemo(
+    () => (zoneProgress || []).map((z) => ({ value: z.zoneNo, label: `${z.zoneNo} — ${String(z.zoneName).replace(/\s*\n\s*/g, " ").trim()}` })),
+    [zoneProgress]
+  );
+  const branchOptions = useMemo(
+    () => (branches || []).map((b) => ({ value: b, label: b })),
+    [branches]
+  );
   const detail = selected ? buildDetailSections(selected.payload || {}, selected) : null;
 
   const currentView = VIEWS.find((v) => v.id === view) || VIEWS[0];
@@ -917,12 +928,22 @@ export default function AdminDashboard() {
               <option value="general">General</option>
               <option value="special">Special</option>
             </select>
-            <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} style={s.select} aria-label="Filter by branch">
-              <option value="all">All branches</option>
-              {branches.map((b) => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
+            <FilterCombo
+              options={zoneOptions}
+              value={zoneFilter}
+              onChange={setZoneFilter}
+              placeholder="All zones — type to search"
+              width={210}
+              ariaLabel="Filter by zone"
+            />
+            <FilterCombo
+              options={branchOptions}
+              value={branchFilter}
+              onChange={setBranchFilter}
+              placeholder="All branches — type to search"
+              width={210}
+              ariaLabel="Filter by branch"
+            />
             <select value={limit} onChange={(e) => setLimit(Number(e.target.value))} style={s.select} aria-label="Rows per page">
               <option value={20}>20 / page</option>
               <option value={50}>50 / page</option>
@@ -1182,6 +1203,80 @@ export default function AdminDashboard() {
   );
 }
 
+// Searchable select-style filter: type to narrow a long option list
+// (zones, branches), click an option to apply. Renders at most 60 options —
+// typing narrows it further.
+function FilterCombo({ options, value, onChange, placeholder, width, ariaLabel }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const wrapRef = useRef(null);
+  const selected = options.find((o) => o.value === value && value !== "all");
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const q = query.trim().toLowerCase();
+  const matches = (q ? options.filter((o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q)) : options).slice(0, 60);
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative", flexShrink: 0 }}>
+      <div style={{ ...s.comboBox, width }} onClick={() => { setOpen((o) => !o); setQuery(""); }}>
+        <span style={{ ...s.comboValue, color: selected ? "#1D4ED8" : "#8A94A6" }}>
+          {selected ? selected.label : placeholder}
+        </span>
+        <span style={{ ...s.comboChevron, transform: open ? "rotate(180deg)" : "none" }}>▾</span>
+      </div>
+      {open && (
+        <div style={s.comboPanel}>
+          <input
+            autoFocus
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}
+            placeholder="Type to search…"
+            style={s.comboSearch}
+            aria-label={ariaLabel ? `${ariaLabel} search` : "Filter search"}
+          />
+          <div
+            role="button"
+            tabIndex={0}
+            style={{ ...s.comboRow, color: "#B02A2A", fontWeight: 700 }}
+            onMouseDown={() => { onChange("all"); setOpen(false); }}
+            onKeyDown={(e) => { if (e.key === "Enter") { onChange("all"); setOpen(false); } }}
+          >
+            ✕ Clear selection
+          </div>
+          {matches.map((o) => (
+            <div
+              key={o.value}
+              role="button"
+              tabIndex={0}
+              style={{ ...s.comboRow, ...(o.value === value ? s.comboRowActive : {}) }}
+              onMouseDown={() => { onChange(o.value); setOpen(false); }}
+              onKeyDown={(e) => { if (e.key === "Enter") { onChange(o.value); setOpen(false); } }}
+            >
+              {o.label}
+            </div>
+          ))}
+          {matches.length === 0 && <div style={{ ...s.comboRow, color: "#8A94A6" }}>No match</div>}
+          {!q && options.length > 60 && (
+            <div style={{ ...s.comboRow, color: "#8A94A6", fontStyle: "italic" }}>
+              {options.length} total — type to narrow
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FeedbackPie({ pie, loading }) {
   const parts = pie
     ? [
@@ -1204,7 +1299,7 @@ function FeedbackPie({ pie, loading }) {
         <p style={s.muted}>No feedback yet.</p>
       ) : (
         <div style={{ display: "flex", alignItems: "center", gap: 22, flexWrap: "wrap" }}>
-          <svg width={140} height={140} viewBox="0 0 140 140" role="img" aria-label="Feedback by type">
+          <svg width={140} height={140} viewBox="0 0 140 140" role="img" aria-label="Registrations by type — Bal, Mahila, EMS">
             <circle cx="70" cy="70" r={R} fill="none" stroke="#EDF1F6" strokeWidth={22} />
             {parts.map((p) => {
               if (p.count === 0) return null;
@@ -1456,6 +1551,15 @@ const s = {
   // ---------- Bulk delete ----------
   deleteSelectedBtn: { color: "#fff", background: "#B02A2A", borderColor: "#B02A2A", fontWeight: 700 },
   bulkDeleteBtn: { color: "#fff", background: "#B02A2A", border: "none", borderRadius: 10, padding: "10px 16px", fontWeight: 800, fontSize: "0.85rem", cursor: "pointer", opacity: 1 },
+
+  // ---------- Searchable filter combos ----------
+  comboBox: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, height: 44, padding: "0 12px", background: "#fff", border: "1px solid #D7DEE8", borderRadius: 10, cursor: "pointer", fontSize: "0.83rem", userSelect: "none" },
+  comboValue: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: 600 },
+  comboChevron: { flexShrink: 0, color: "#8A94A6", fontSize: "0.7rem", transition: "transform 130ms" },
+  comboPanel: { position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 40, width: "max-content", minWidth: "100%", maxWidth: 320, maxHeight: 300, overflowY: "auto", background: "#fff", border: "1px solid #D7DEE8", borderRadius: 10, boxShadow: "0 10px 30px rgba(20,40,80,0.16)", padding: 6 },
+  comboSearch: { width: "100%", boxSizing: "border-box", height: 36, padding: "0 10px", marginBottom: 6, border: "1px solid #D7DEE8", borderRadius: 8, fontSize: "0.83rem", outline: "none" },
+  comboRow: { padding: "8px 10px", borderRadius: 8, fontSize: "0.83rem", color: "#33445C", cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: 500 },
+  comboRowActive: { background: "#EAF1FB", color: "#1D4ED8", fontWeight: 700 },
 
   // ---------- Controls ----------
   exportRow: { display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap", alignItems: "center" },
