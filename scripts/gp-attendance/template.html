@@ -640,16 +640,12 @@ function renderList() {
   var html = "";
   out.forEach(function (r) {
     var m = mergedLog(r.rid, selDate);
-    var days = totalDays(r.rid);
     html += '<div class="card' + (m ? " present" : "") + '">';
     html += "<h3>" + esc(r.name) + "</h3>";
     html += '<div class="meta">';
     if (r.gpNo) html += '<span class="gpno">GP ' + esc(r.gpNo) + "</span> · ";
     html += esc(r.zoneNo) + " " + esc(r.zoneName) + (r.station ? " · " + esc(r.station) : "") + "<br/>";
     if (r.phones) html += esc(r.phones) + "<br/>";
-    if (r.age) html += "Age " + esc(r.age) + " · ";
-    if (r.from || r.to) html += "Sewa " + esc(r.from || "?") + " → " + esc(r.to || "?") + "<br/>";
-    html += "Days present: <b>" + days + "</b>";
     html += "</div>";
     if (m) html += '<span class="status">✓ Present ' + esc(selDate) + " · by " + esc(m.by || "?") + "</span>";
     html += '<button class="mark ' + (m ? "undo" : "yes") + '" data-rid="' + r.rid + '">' + (m ? "✓ Marked — tap to undo" : "Mark present") + "</button>";

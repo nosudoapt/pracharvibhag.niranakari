@@ -53,15 +53,10 @@ export async function GET(request) {
         "Name",
         "Station",
         "Mobile No.",
-        "Age",
-        "From",
-        "To",
-        "Days present",
         { v: "Present or Not", bold: true },
       ].map((h) => (typeof h === "object" ? h : { v: h, bold: true })),
       ...GP_DATA.map((row, i) => {
         const rid = i + 1;
-        const mine = byPerson.get(rid);
         return [
           i + 1,
           row[0] || "",
@@ -70,10 +65,6 @@ export async function GET(request) {
           row[3] || "",
           row[4] || "",
           row[5] || "",
-          row[6] || "",
-          row[7] || "",
-          row[8] || "",
-          mine ? mine.size : 0,
           presentToday.has(rid) ? "Present" : "Not present",
         ];
       }),
@@ -93,7 +84,7 @@ export async function GET(request) {
     const buf = buildXlsx([
       {
         name: "Attendance",
-        columns: [6, 8, 10, 16, 34, 18, 20, 6, 9, 9, 9, 22].map((w) => ({ width: w })),
+        columns: [6, 8, 10, 16, 34, 18, 20, 22].map((w) => ({ width: w })),
         rows: rosterRows,
       },
       {
