@@ -10,7 +10,8 @@ export const runtime = "nodejs";
 
 // GET → .xlsx download. Sheet 1: full GP roster + ONE "Present or Not" column
 // for the selected day (no per-date columns as requested). Defaults to
-// today (IST). Sheet 2 stays the raw audit log of who marked whom.
+// today (IST). Sheet 2 is the mark log for THAT SAME DAY only — one row per
+// person, so no other dates (and therefore no lookalike duplicates) appear.
 export async function GET(request) {
   const identity = await getAdminIdentity();
   if (!identity || !can(identity.role, ACTIONS.EXPORT_SUBMISSIONS)) {
@@ -35,14 +36,6 @@ export async function GET(request) {
       const r = GP_DATA[rid - 1] || [];
       return { gpNo: r[0] || "", zoneName: r[2] || "", name: r[3] || "" };
     };
-
-    let daysByPerson;
-    const byPerson = new Map(); // rid -> distinct dates overall (for "Days present")
-    for (const m of marks) {
-      const d = String(m.marked_on).slice(0, 10);
-      if (!byPerson.has(m.rid)) byPerson.set(m.rid, new Set());
-      byPerson.get(m.rid).add(d);
-    }
 
     const rosterRows = [
       [
@@ -75,10 +68,13 @@ export async function GET(request) {
         v: h,
         bold: true,
       })),
-      ...marks.map((m) => {
-        const r = roster(m.rid);
-        return [m.rid, r.gpNo, r.name, r.zoneName, String(m.marked_on).slice(0, 10), String(m.at || ""), m.by, m.source];
-      }),
+      // mark log for the SELECTED day only — one row per person, no other dates
+      ...marks
+        .filter((m) => String(m.marked_on).slice(0, 10) === day)
+        .map((m) => {
+          const r = roster(m.rid);
+          return [m.rid, r.gpNo, r.name, r.zoneName, String(m.marked_on).slice(0, 10), String(m.at || ""), m.by, m.source];
+        }),
     ];
 
     const buf = buildXlsx([

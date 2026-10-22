@@ -90,6 +90,11 @@
   .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 104px; background: #22303f; color: #fff; padding: 10px 18px; border-radius: 20px; font-size: 12.5px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 60; max-width: 88vw; text-align: center; }
   .toast.show { opacity: 1; }
   .hidden { display: none !important; }
+  #backupModal { position: fixed; inset: 0; background: rgba(15,25,40,.55); z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  #backupModal .bm-card { background: #fff; border-radius: 14px; padding: 16px; max-width: 520px; width: 100%; max-height: 86vh; overflow-y: auto; box-shadow: 0 12px 40px rgba(15,25,40,.35); }
+  #backupModal .bm-card h3 { font-size: 15px; margin-bottom: 6px; }
+  #backupPre { background: #f6f8fb; border: 1px solid var(--line); border-radius: 10px; padding: 10px; font-size: 11.5px; line-height: 1.5; max-height: 300px; overflow: auto; white-space: pre-wrap; }
+  #backupModal .actions button { flex: 1 1 40%; }
   @keyframes gpSpin { to { transform: rotate(360deg); } }
   .spinner { width: 13px; height: 13px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; display: inline-block; animation: gpSpin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
   #loginBtn.busy, footer button.busy { opacity: .75; cursor: wait; }
@@ -157,7 +162,7 @@
   <div id="logView" class="hidden">
     <div class="panel">
       <h2>Attendance log</h2>
-      <p class="note">Every mark merged from live sync, pasted payloads and this device. Duplicate marks for the same person on the same day are impossible.</p>
+      <p class="note">This Log shows <b>the selected day only</b> — one row per person, nothing from other days. Duplicate marks for the same person on the same day are impossible.</p>
       <div style="overflow-x:auto"><table id="logTable"><thead><tr><th>Date</th><th>Roll</th><th>Name</th><th>Zone</th><th>Marked by</th></tr></thead><tbody></tbody></table></div>
     </div>
   </div>
@@ -206,11 +211,28 @@
   <button id="tabLog">Log</button>
   <button id="tabAdmin" class="hidden">Admin</button>
   <button id="btnExcel" class="hidden">Excel</button>
+  <button id="btnBackup" class="hidden" title="Readable attendance backup you can share even without any code">Backup</button>
   <button id="btnCopy" title="Copy attendance as JSON to send to the office">Copy attendance</button>
 </footer>
 
 <div id="saveNote" style="display:none;margin:6px 12px 78px;padding:0 6px;color:#7A8699;font-size:11.5px;line-height:1.5;text-align:center">
   Saving works automatically: every mark is stored in this phone's browser instantly — refresh or re-download is safe. Marks marked <b>offline</b> reach the office automatically once internet is back; you can also send them any time with “Copy attendance”.
+</div>
+
+<!-- emergency backup: readable list survives even if no code ever reaches the office -->
+<div id="backupModal" class="hidden">
+  <div class="bm-card">
+    <h3>Attendance backup — <span id="bkDate"></span></h3>
+    <p class="note">If nothing else works today, THIS list is the attendance. Share it on WhatsApp, copy it as a message, or download the .txt — the office can mark everyone from it later, no code needed.</p>
+    <pre id="backupPre"></pre>
+    <div class="actions" style="flex-wrap:wrap;gap:8px">
+      <button id="bkShare" class="primary">Share / WhatsApp</button>
+      <button id="bkCopyList" class="ghost">Copy list</button>
+      <button id="bkDownloadTxt" class="ghost">Download .txt</button>
+      <button id="bkCopyJson" class="ghost">Copy attendance code</button>
+      <button id="bkClose">Close</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -375,8 +397,9 @@ function updateSaveBanner() {
   } else {
     el.classList.add("hidden");
   }
-  // the copy button matters whenever anything is stranded on this device
+  // the copy + backup buttons matter whenever anything is stranded on this device
   show("btnCopy", mode === "offline" || list.length > 0);
+  show("btnBackup", mode === "offline" || list.length > 0);
 }
 function allDates(rows) {
   var set = {};
@@ -734,35 +757,22 @@ function renderCounts() {
 }
 
 function renderLog() {
+  // one day only: the Log shows the currently selected date and nothing else
   var rows = [];
-  var dates = allDates(marks);
-  dates.forEach(function (d) {
-    Object.keys(marks).forEach(function (rid) {
-      if (marks[rid][d]) rows.push({ rid: rid, date: d, m: marks[rid][d] });
-    });
-  });
-  dates = allDates(LOG);
-  dates.forEach(function (d) {
-    Object.keys(LOG).forEach(function (rid) {
-      if (LOG[rid][d]) rows.push({ rid: rid, date: d, m: LOG[rid][d] });
-    });
-  });
-  if (mode === "live") {
-    dates = allDates(serverLog);
-    dates.forEach(function (d) {
-      Object.keys(serverLog).forEach(function (rid) {
-        if (serverLog[rid][d]) rows.push({ rid: rid, date: d, m: serverLog[rid][d] });
-      });
+  function collect(src) {
+    Object.keys(src).forEach(function (rid) {
+      if (src[rid][selDate]) rows.push({ rid: rid, date: selDate, m: src[rid][selDate] });
     });
   }
-  // dedupe (rid+date) keeping local first
+  collect(marks); collect(LOG);
+  if (mode === "live") collect(serverLog);
+  // one row per person for the day — duplicates impossible
   var seen = {};
   rows = rows.filter(function (r) {
-    var k = r.rid + "|" + r.date;
-    if (seen[k]) return false;
-    seen[k] = 1; return true;
+    if (seen[r.rid]) return false;
+    seen[r.rid] = 1; return true;
   });
-  rows.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : a.rid - b.rid; });
+  rows.sort(function (a, b) { return a.rid - b.rid; });
   var tb = document.querySelector("#logTable tbody");
   if (!rows.length) { tb.innerHTML = '<tr><td colspan="5" style="color:#7b8a9b;padding:16px;text-align:center">Nothing marked yet.</td></tr>'; return; }
   tb.innerHTML = rows.slice(0, 1000).map(function (r) {
@@ -783,6 +793,76 @@ document.getElementById("btnCopy").addEventListener("click", function () {
   if (navigator.clipboard) navigator.clipboard.writeText(text).catch(function () {});
   ta.remove();
   toast(came.length ? "Copied " + came.length + " roll numbers — send it to the Admin." : "Nothing marked yet for " + selDate + ".");
+});
+
+/* ================= emergency backup (readable by humans) =================
+   The JSON code is for the office machine. This one is for humans: if no
+   code, no server and no dashboard ever work today, the present list can
+   still travel on WhatsApp / SMS / paper and attendance stays perfect. */
+function backupText() {
+  var came = [];
+  DATA.forEach(function (r) { if (mergedLog(r.rid, selDate)) came.push(r.rid); });
+  var lines = [
+    "GP ATTENDANCE — " + selDate,
+    "Marked by: " + (session ? session.username : "?"),
+    "Present: " + came.length + " out of " + DATA.length,
+    ""
+  ];
+  var byZone = {};
+  came.forEach(function (rid) {
+    var r = DATA[rid - 1] || {};
+    var z = (r.zoneNo || "?") + " " + (r.zoneName || "");
+    (byZone[z] = byZone[z] || []).push(r);
+  });
+  Object.keys(byZone).sort().forEach(function (z) {
+    lines.push(z + " — " + byZone[z].length + " present:");
+    byZone[z].forEach(function (r) {
+      lines.push("  • " + (r.name || ("Roll " + r.rid)) + (r.gpNo ? " (GP " + r.gpNo + ")" : "") + (r.station ? " · " + r.station : ""));
+    });
+    lines.push("");
+  });
+  lines.push("Roll numbers, in order: " + (came.join(",") || "none"));
+  return lines.join("\n");
+}
+function copyPlain(text) {
+  var ta = document.createElement("textarea");
+  ta.value = text; document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); } catch (e) {}
+  if (navigator.clipboard) navigator.clipboard.writeText(text).catch(function () {});
+  ta.remove();
+}
+function openBackup() {
+  document.getElementById("bkDate").textContent = selDate;
+  document.getElementById("backupPre").textContent = backupText();
+  document.getElementById("backupModal").classList.remove("hidden");
+}
+document.getElementById("btnBackup").addEventListener("click", openBackup);
+document.getElementById("bkClose").addEventListener("click", function () {
+  document.getElementById("backupModal").classList.add("hidden");
+});
+document.getElementById("bkCopyList").addEventListener("click", function () {
+  copyPlain(backupText());
+  toast("Attendance list copied — paste it on WhatsApp to the office.");
+});
+document.getElementById("bkDownloadTxt").addEventListener("click", function () {
+  var blob = new Blob([backupText()], { type: "text/plain" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "gp-attendance-" + selDate + ".txt";
+  a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 3000);
+});
+document.getElementById("bkShare").addEventListener("click", function () {
+  var text = backupText();
+  if (navigator.share) {
+    navigator.share({ title: "GP Attendance " + selDate, text: text }).catch(function () {});
+  } else {
+    copyPlain(text);
+    toast("Sharing not available here — list copied instead.");
+  }
+});
+document.getElementById("bkCopyJson").addEventListener("click", function () {
+  document.getElementById("btnCopy").click();
 });
 
 function parsePayloadText(text) {
