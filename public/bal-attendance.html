@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23312e81'/%3E%3Ctext x='8' y='12' font-size='9' font-family='sans-serif' font-weight='700' fill='%23fff' text-anchor='middle'%3EB%3C/text%3E%3C/svg%3E" />
+<title>Bal-Mahila-EMS Attendance — Live</title>
+<style>
+  :root {
+    color-scheme: light;
+    --brand-deep:#312e81; --brand:#4338ca; --brand2:#0e7490;
+    --green:#059669; --green-bg:#ecfdf5; --green-line:#a7f3d0;
+    --red:#dc2626; --red-bg:#fef2f2; --red-line:#fecaca;
+    --violet:#7c3aed; --violet-bg:#f5f3ff; --orange:#ea580c; --orange-bg:#fff7ed;
+    --bg:#eef2f7; --card:#ffffff; --line:#e2e8f0; --ink:#0f172a; --mut:#64748b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); min-height: 100vh; color: var(--ink); }
+
+  /* ---- login ---- */
+  #loginScreen { position: fixed; inset: 0; background: linear-gradient(150deg, var(--brand-deep) 0%, #1e3a8a 45%, var(--brand2) 100%); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 18px; }
+  #loginCard { background: #fff; border-radius: 22px; padding: 30px 24px; width: min(94vw, 400px); box-shadow: 0 25px 60px rgba(15,23,42,.35); }
+  .logo { width: 54px; height: 54px; border-radius: 16px; background: linear-gradient(135deg, var(--brand), var(--brand2)); color: #fff; font-weight: 800; font-size: 22px; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; }
+  #loginCard h1 { text-align: center; font-size: 19px; color: var(--brand-deep); }
+  #loginCard .sub { text-align: center; font-size: 12.5px; color: var(--mut); margin: 6px 0 20px; line-height: 1.5; }
+  .fld { margin-bottom: 13px; }
+  .fld label { display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 5px; }
+  .fld input { width: 100%; padding: 13px 14px; font-size: 16px; border: 1.5px solid var(--line); border-radius: 13px; outline: none; background: #f8fafc; transition: border-color .15s; }
+  .fld input:focus { border-color: var(--brand); background: #fff; }
+  #loginBtn { width: 100%; padding: 14px; border: 0; border-radius: 13px; background: linear-gradient(135deg, var(--brand), var(--brand2)); color: #fff; font-size: 15px; font-weight: 800; cursor: pointer; margin-top: 4px; box-shadow: 0 6px 16px rgba(67,56,202,.3); }
+  #loginBtn.busy { opacity: .7; cursor: wait; }
+  #loginErr { color: var(--red); font-size: 12.5px; margin-top: 12px; min-height: 16px; text-align: center; font-weight: 600; }
+  #loadingScreen { position: fixed; inset: 0; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; z-index: 40; color: var(--mut); font-size: 14px; }
+  .bigspin { width: 34px; height: 34px; border: 3px solid #e2e8f0; border-top-color: var(--brand); border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---- header ---- */
+  header { background: linear-gradient(135deg, var(--brand-deep), var(--brand) 55%, var(--brand2)); color: #fff; padding: 13px 14px 12px; position: sticky; top: 0; z-index: 10; box-shadow: 0 4px 14px rgba(49,46,129,.25); }
+  .hrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .hrow h1 { font-size: 15.5px; letter-spacing: -.01em; }
+  .hrow .sub { font-size: 10.5px; opacity: .8; margin-top: 2px; }
+  .hbtns { display: flex; align-items: center; gap: 7px; }
+  .mode { font-size: 10px; font-weight: 800; letter-spacing: .6px; border-radius: 20px; padding: 4px 10px; display: inline-flex; align-items: center; gap: 5px; }
+  .mode .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .mode.live { background: rgba(16,185,129,.25); color: #a7f3d0; }
+  .mode.live .dot { animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  .mode.off { background: rgba(255,255,255,.18); color: #fde68a; }
+  .hbtn { border: 0; background: rgba(255,255,255,.16); color: #fff; font-size: 11px; font-weight: 700; border-radius: 9px; padding: 7px 10px; cursor: pointer; }
+  .whoami { font-size: 10.5px; opacity: .85; margin-top: 3px; }
+  .counts { display: flex; gap: 8px; margin-top: 10px; }
+  .counts div { flex: 1; background: rgba(255,255,255,.12); border-radius: 13px; padding: 9px 6px; text-align: center; backdrop-filter: blur(4px); }
+  .counts b { display: block; font-size: 21px; font-variant-numeric: tabular-nums; }
+  .counts span { font-size: 9.5px; opacity: .85; letter-spacing: .4px; text-transform: uppercase; }
+  .refreshrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 10.5px; opacity: .9; }
+  .refreshrow .ring { font-variant-numeric: tabular-nums; }
+  #typeChips { display: flex; gap: 7px; margin-top: 9px; position: sticky; top: 0; }
+  .tchip { flex: 1; border: 0; border-radius: 11px; padding: 8px 4px; font-size: 12px; font-weight: 800; background: rgba(255,255,255,.13); color: #e0e7ff; cursor: pointer; transition: background .15s, color .15s; }
+  .tchip.on { background: #fff; color: var(--brand-deep); box-shadow: 0 2px 8px rgba(15,23,42,.18); }
+  .tchip .tn { display: block; font-size: 9px; font-weight: 700; opacity: .8; margin-top: 1px; }
+
+  /* ---- main ---- */
+  main { padding: 12px 12px 110px; max-width: 640px; margin: 0 auto; }
+  .tools { display: flex; gap: 8px; margin-bottom: 4px; }
+  #q { flex: 1; padding: 13px 15px; font-size: 16px; border-radius: 14px; border: 1.5px solid var(--line); outline: none; background: #fff; box-shadow: 0 1px 4px rgba(15,23,42,.05); }
+  #q:focus { border-color: var(--brand); }
+  #zoneSel { padding: 9px; border: 1.5px solid var(--line); border-radius: 13px; background: #fff; font-size: 12px; max-width: 132px; color: var(--ink); }
+  .hint { font-size: 11.5px; color: var(--mut); margin: 4px 2px 12px; line-height: 1.5; }
+  .shown { font-size: 11px; color: var(--mut); text-align: center; margin-bottom: 10px; }
+  .showing-me { font-size: 11px; color: #7c2d12; text-align: center; margin-bottom: 10px; font-weight: 700; }
+
+  .card { background: var(--card); border-radius: 16px; padding: 13px 15px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(15,23,42,.06); border-left: 5px solid var(--line); transition: border-color .2s; }
+  .card.present { border-left-color: var(--green); background: linear-gradient(0deg, var(--green-bg), #fff 55%); }
+  .card.toprow { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .card h3 { font-size: 15.5px; margin-bottom: 4px; line-height: 1.35; }
+  .meta { font-size: 12px; color: #475569; line-height: 1.6; }
+  .pill { display: inline-block; font-size: 10px; font-weight: 800; border-radius: 7px; padding: 2px 8px; margin-right: 5px; letter-spacing: .3px; }
+  .pill.reg { font-family: ui-monospace, Menlo, monospace; background: #eef2ff; color: var(--brand); border: 1px solid #c7d2fe; }
+  .pill.t-bal { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-line); }
+  .pill.t-mahila { background: var(--violet-bg); color: var(--violet); border: 1px solid #ddd6fe; }
+  .pill.t-ems { background: var(--orange-bg); color: var(--orange); border: 1px solid #fed7aa; }
+  .status { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; color: var(--green); background: var(--green-bg); border: 1px solid var(--green-line); border-radius: 8px; padding: 3px 9px; margin-top: 8px; }
+  button.mark { margin-top: 10px; width: 100%; padding: 12px; font-size: 14.5px; font-weight: 800; border: 0; border-radius: 12px; cursor: pointer; letter-spacing: .2px; }
+  button.mark.yes { background: linear-gradient(135deg, var(--green), #047857); color: #fff; box-shadow: 0 4px 12px rgba(5,150,105,.25); }
+  button.mark.yes:active { transform: scale(.985); }
+  button.mark.undobtn { background: var(--red-bg); color: var(--red); width: auto; display: block; margin-left: auto; padding: 7px 16px; font-size: 11.5px; font-weight: 800; border-radius: 9px; margin-top: 8px; border: 1px solid var(--red-line); }
+  .empty { text-align: center; color: var(--mut); padding: 30px 0; font-size: 13.5px; line-height: 1.6; }
+
+  /* ---- views / panels ---- */
+  .panel { background: #fff; border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(15,23,42,.06); }
+  .panel h2 { font-size: 15px; color: var(--brand-deep); margin-bottom: 8px; }
+  .panel p.note { font-size: 12px; color: var(--mut); line-height: 1.6; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  th, td { text-align: left; padding: 7px 7px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  th { color: var(--mut); font-size: 10px; text-transform: uppercase; letter-spacing: .4px; }
+  .logsearch { width: 100%; padding: 11px 13px; font-size: 14px; border: 1.5px solid var(--line); border-radius: 12px; outline: none; margin-bottom: 10px; }
+  .ugrid .urow { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 12.5px; flex-wrap: wrap; }
+  .ugrid .urow b { min-width: 76px; }
+  .rolechip { font-size: 10px; font-weight: 800; border-radius: 6px; padding: 2px 7px; background: #eef2ff; color: var(--brand); }
+  .rolechip.sa { background: #fef3c7; color: #92400e; }
+  .inchip { font-size: 10px; font-weight: 700; border-radius: 6px; padding: 2px 7px; background: var(--green-bg); color: var(--green); }
+  .inchip.out { background: #f1f5f9; color: var(--red); }
+  .addrow { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .addrow input { flex: 1; min-width: 90px; padding: 10px; border: 1.5px solid var(--line); border-radius: 10px; font-size: 13px; }
+  .addrow select { padding: 10px; border: 1.5px solid var(--line); border-radius: 10px; font-size: 13px; background: #fff; color: var(--ink); }
+  .addrow button { padding: 10px 16px; border: 0; border-radius: 10px; background: linear-gradient(135deg, var(--brand), var(--brand2)); color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; }
+  .statsgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .statsgrid .st { background: #f8fafc; border: 1px solid var(--line); border-radius: 12px; padding: 10px; text-align: center; }
+  .statsgrid .st b { display: block; font-size: 17px; }
+  .statsgrid .st span { font-size: 9.5px; color: var(--mut); text-transform: uppercase; letter-spacing: .3px; }
+
+  /* ---- footer ---- */
+  footer { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--line); padding: 9px 12px 10px; display: flex; gap: 8px; z-index: 10; }
+  footer button { flex: 1; padding: 12px 4px; font-size: 12px; font-weight: 800; border-radius: 12px; border: 0; cursor: pointer; background: #eef2f7; color: var(--brand); }
+  footer button.primary { background: linear-gradient(135deg, var(--brand), var(--brand2)); color: #fff; }
+  #pendingBadge { position: absolute; top: -7px; right: 10px; background: #f59e0b; color: #fff; border-radius: 10px; font-size: 9.5px; font-weight: 800; padding: 2px 7px; }
+
+  .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 108px; background: #0f172a; color: #fff; padding: 11px 18px; border-radius: 22px; font-size: 12.5px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 60; max-width: 88vw; text-align: center; font-weight: 600; }
+  .toast.show { opacity: 1; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ================= LOADING ================= -->
+<div id="loadingScreen" class="hidden"><div class="bigspin"></div><div id="loadingText">Loading roster…</div></div>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginScreen" class="hidden">
+  <div id="loginCard">
+    <div class="logo">B</div>
+    <h1>Bal-Mahila-EMS Attendance</h1>
+    <div class="sub">79th Annual Nirankari Sant Samagam, Oct. 2026 · Samalkha<br/>Live attendance for Bal · Mahila · EMS registered sevadaars</div>
+    <div class="fld">
+      <label>Username</label>
+      <input id="inUser" autocomplete="username" autocapitalize="none" />
+    </div>
+    <div class="fld">
+      <label>Password</label>
+      <input id="inPin" type="password" autocomplete="current-password" />
+    </div>
+    <button id="loginBtn">Sign in</button>
+    <div id="loginErr"></div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<header id="hdr" class="hidden">
+  <div class="hrow">
+    <div>
+      <h1>Bal-Mahila-EMS Attendance</h1>
+      <div class="sub">79th Annual Sant Samagam · Samalkha</div>
+      <div class="whoami" id="whoami"></div>
+    </div>
+    <div class="hbtns">
+      <span id="modeBadge" class="mode off"><span class="dot"></span>OFFLINE</span>
+      <button id="logoutBtn" class="hbtn">Logout</button>
+    </div>
+  </div>
+  <div class="counts">
+    <div><b id="cPresent">0</b><span>Present now</span></div>
+    <div><b id="cTotal">0</b><span>Registered</span></div>
+    <div><b id="cLeft">0</b><span>Not yet</span></div>
+  </div>
+  <div class="refreshrow">
+    <span id="pendingBadge" class="hidden">0 saved unsent</span>
+    <span class="ring" id="refreshRing">Live refresh every 5s</span>
+  </div>
+  <div id="typeChips">
+    <button class="tchip on" data-t="">All</button>
+    <button class="tchip" data-t="bal">Bal</button>
+    <button class="tchip" data-t="mahila">Mahila</button>
+    <button class="tchip" data-t="ems">EMS</button>
+  </div>
+</header>
+
+<main>
+  <!-- MARK VIEW -->
+  <div id="markView" class="hidden">
+    <div class="tools">
+      <input type="search" id="q" placeholder="Name · phone · HH reg no · code · zone…" autocomplete="off" />
+      <select id="zoneSel"><option value="">All zones</option></select>
+    </div>
+    <p class="hint">Type a <b>name</b>, any part of a <b>mobile number</b> (last digits work), the <b>HH registration no.</b>, or zone/branch. Search runs instantly on your phone against the full list.</p>
+    <div id="showing" class="shown"></div>
+    <div id="list"></div>
+  </div>
+
+  <!-- LOG VIEW -->
+  <div id="logView" class="hidden">
+    <div class="panel">
+      <h2>Attendance log</h2>
+      <p class="note">Every confirmed mark (newest first). One row per person — the same registration can never be counted twice, no matter how many people tap at once.</p>
+      <input type="search" id="logQ" class="logsearch" placeholder="Filter log…" autocomplete="off" />
+      <div style="overflow-x:auto"><table id="logTable"><thead><tr><th>Reg</th><th>Name</th><th>Type</th><th>Marked by</th><th>Time</th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- ADMIN VIEW -->
+  <div id="adminView" class="hidden">
+    <div class="panel">
+      <h2>Attendance by type</h2>
+      <div class="statsgrid" id="typeStats"></div>
+      <p class="note" style="margin-bottom:0">The exact numbers every phone shows in its header come from these live database counts on every 5-second refresh.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Field users (recorders &amp; admins)</h2>
+      <p class="note">Records (like <b>rec1</b>) can mark attendance but can never undo it. Only <b>Admin</b> sees the undo button — and the server enforces that even if a modified app tried.</p>
+      <div class="ugrid" id="userGrid"></div>
+      <div class="addrow">
+        <input id="nuUser" placeholder="username" autocapitalize="none" />
+        <input id="nuName" placeholder="full name" />
+        <input id="nuPin" placeholder="password" />
+        <select id="nuRole">
+          <option value="viewer">Viewer</option>
+          <option value="editor">Recorder</option>
+          <option value="super_admin">Admin</option>
+        </select>
+        <button id="nuAdd">Add/Update</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer id="ftr" class="hidden">
+  <button class="primary" id="tabMark">Mark</button>
+  <button id="tabLog">Log</button>
+  <button id="tabAdmin" class="hidden">Admin</button>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= helpers (mirrors lib/bal-attendance.js) ================= */
+function normSearch(s) { return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, ""); }
+function digitsOnly(s) { return String(s || "").replace(/\D/g, ""); }
+function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function rankOf(r) { return r === "super_admin" ? 3 : r === "editor" ? 2 : r === "viewer" ? 1 : 0; }
+function canRole(role, min) { return rankOf(role) >= rankOf(min); }
+function canUndo(role) { return role === "super_admin"; }
+function typeLabel(t) { return t === "bal" ? "Bal" : t === "mahila" ? "Mahila" : t === "ems" ? "EMS" : "General"; }
+
+// Compact row: [id, regNo, code, name, phone, sewa, branch, zoneNo, zoneName, sectorNo, sectorName, createdDay]
+function fromCompactRow(row) {
+  var rec = {
+    id: row[0], regNo: row[1] || "", code: row[2] || "", name: row[3] || "(name not given)",
+    phone: row[4] || "", sewa: ["bal","mahila","ems"].indexOf(row[5]) !== -1 ? row[5] : "",
+    branch: row[6] || "", zoneNo: row[7] || "", zoneName: row[8] || "",
+    sectorNo: row[9] || "", sectorName: row[10] || "", createdDay: row[11] || ""
+  };
+  var phoneD = digitsOnly(rec.phone);
+  var regD = digitsOnly(rec.regNo);
+  var codeD = digitsOnly(rec.code);
+  rec.f = {
+    nname: normSearch(rec.name),
+    nphone: phoneD,
+    ncode: regD + codeD,
+    nreg: normSearch(rec.regNo),
+    nbranch: normSearch(rec.branch),
+    nzone: normSearch(rec.zoneNo) + normSearch(rec.zoneName),
+    nsector: normSearch(rec.sectorName)
+  };
+  return rec;
+}
+
+function recMatches(f, query) {
+  var toks = String(query || "").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  for (var i = 0; i < toks.length; i++) {
+    var t = toks[i], ok;
+    if (/^\d+$/.test(t)) {
+      var d = digitsOnly(t);
+      ok = f.nphone.indexOf(d) !== -1 || f.ncode.indexOf(d) !== -1;
+    } else {
+      var n = normSearch(t);
+      ok = f.nname.indexOf(n) !== -1 || f.nbranch.indexOf(n) !== -1 || f.nzone.indexOf(n) !== -1 ||
+           f.nsector.indexOf(n) !== -1 || f.nreg.indexOf(n) !== -1 || f.ncode.indexOf(n) !== -1;
+    }
+    if (!ok) return false;
+  }
+  return true;
+}
+
+/* ================= state ================= */
+var REFRESH_MS = 5000;          // live refresh cadence — same number for every phone
+var PAGE_SIZE = 60;             // cards rendered per query (keeps phones snappy on 2700)
+var LOG_CAP = 400;
+
+var session = null;             // {username, name, role}
+var records = [];               // full roster (2700-ish)
+var serverMarks = {};           // id -> {at, by}  (authoritative, from the server)
+var pending = [];               // [{id, at}] — this device's marks not yet confirmed
+var typeFilter = "";            // "" | bal | mahila | ems
+var lastCounts = null;          // {total, present, byType}
+var nextSyncAt = 0;
+var pollTimer = null;
+var ticking = null;
+var online = false;
+var page = 1;
+
+/* ================= finders ================= */
+var byId = {};                  // id -> record
+function buildIndex() { byId = {}; for (var i = 0; i < records.length; i++) byId[records[i].id] = records[i]; }
+
+function mergedMark(id) {
+  if (serverMarks[id]) return serverMarks[id];
+  for (var i = 0; i < pending.length; i++) {
+    if (pending[i].id === id) return { at: pending[i].at, by: session ? session.username + " (unsent)" : "unsent" };
+  }
+  return null;
+}
+
+/* ================= tiny UI helpers ================= */
+var $ = function (id) { return document.getElementById(id); };
+function show(id, on) { $(id).classList[on ? "remove" : "add"]("hidden"); }
+var toastTm = null;
+function toast(msg) { var t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastTm); toastTm = setTimeout(function () { t.classList.remove("show"); }, 2400); }
+function fmtTime(iso) { try { return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); } catch (e) { return "?"; } }
+
+function setMode(live) {
+  online = live;
+  var b = $("modeBadge");
+  b.className = "mode " + (live ? "live" : "off");
+  b.innerHTML = '<span class="dot"></span>' + (live ? "LIVE" : "OFFLINE");
+}
+
+function updateBadge() {
+  var b = $("pendingBadge");
+  b.classList[pending.length ? "remove" : "add"]("hidden");
+  b.textContent = pending.length + " saved unsent";
+}
+
+function renderCounts() {
+  if (lastCounts) {
+    $("cPresent").textContent = lastCounts.present;
+    $("cTotal").textContent = lastCounts.total;
+    $("cLeft").textContent = Math.max(0, lastCounts.total - lastCounts.present);
+  } else {
+    var local = 0;
+    for (var i = 0; i < records.length; i++) if (mergedMark(records[i].id)) local++;
+    $("cPresent").textContent = local;
+    $("cTotal").textContent = records.length;
+    $("cLeft").textContent = Math.max(0, records.length - local);
+  }
+}
+
+/* ================= rendering ================= */
+function fillZones() {
+  var seen = {}, list = [];
+  for (var i = 0; i < records.length; i++) {
+    var r = records[i];
+    var k = r.zoneNo + "|" + r.zoneName;
+    if (!seen[k]) { seen[k] = 1; list.push({ k: k, label: (r.zoneNo ? r.zoneNo + " " : "") + r.zoneName }); }
+  }
+  list.sort(function (a, b) { return a.label < b.label ? -1 : 1; });
+  var sel = $("zoneSel");
+  for (var j = 0; j < list.length; j++) {
+    var o = document.createElement("option");
+    o.value = list[j].k; o.textContent = list[j].label.trim() || "—";
+    sel.appendChild(o);
+  }
+}
+
+function filtered() {
+  var q = $("q").value.trim();
+  var zone = $("zoneSel").value;
+  var out = [];
+  for (var i = 0; i < records.length; i++) {
+    var r = records[i];
+    if (typeFilter && r.sewa !== typeFilter) continue;
+    if (zone && (r.zoneNo + "|" + r.zoneName) !== zone) continue;
+    if (q && !recMatches(r.f, q)) continue;
+    out.push(r);
+    if (out.length >= PAGE_SIZE * page + PAGE_SIZE) break;
+  }
+  return out;
+}
+
+function renderList() {
+  var rows = filtered();
+  var showNote = $("showing");
+  var q = $("q").value.trim();
+  var zone = $("zoneSel").value;
+  var filtersOn = q || zone || typeFilter;
+  if (!filtersOn) {
+    showNote.textContent = "Full list: " + records.length.toLocaleString() + " people — use the search to find someone fast.";
+  } else if (rows.length > PAGE_SIZE * page) {
+    showNote.textContent = "Showing " + (PAGE_SIZE * page) + " of ≥ " + rows.length.toLocaleString() + " matches — refine the search or tap Load more.";
+    returnList(rows);
+    addMoreBtn();
+    return;
+  } else {
+    showNote.textContent = rows.length.toLocaleString() + " match(es).";
+  }
+  returnList(rows);
+}
+
+function addMoreBtn() {
+  var b = document.createElement("button");
+  b.textContent = "Load more";
+  b.style.cssText = "display:block;margin:4px auto 14px;padding:10px 22px;border:1.5px solid var(--line);border-radius:12px;background:#fff;color:var(--brand);font-weight:800;font-size:13px;cursor:pointer";
+  b.addEventListener("click", function () { page++; renderList(); });
+  $("list").appendChild(b);
+}
+
+function returnList(rows) {
+  var html = "";
+  var isRecorder = canRole(session.role, "editor");
+  var admin = canUndo(session.role);
+  for (var i = 0; i < Math.min(rows.length, PAGE_SIZE * page); i++) {
+    var r = rows[i];
+    var m = mergedMark(r.id);
+    html += '<div class="card' + (m ? " present" : "") + '">';
+    html += '<div class="toprow">';
+    html += "<h3>" + esc(r.name) + "</h3>";
+    html += '<div style="text-align:right;white-space:nowrap">';
+    if (r.regNo) html += '<span class="pill reg">' + esc(r.regNo) + "</span>";
+    if (r.sewa) html += '<span class="pill t-' + esc(r.sewa) + '">' + typeLabel(r.sewa) + "</span>";
+    html += "</div></div>";
+    html += '<div class="meta">';
+    if (r.branch) html += "Branch: " + esc(r.branch) + "<br/>";
+    if (r.zoneName) html += esc(r.zoneNo ? r.zoneNo + " · " : "") + esc(r.zoneName) + (r.sectorName ? " / " + esc(r.sectorName) : "") + "<br/>";
+    if (r.phone) html += esc(r.phone) + "<br/>";
+    if (m) html += "✓ Present — " + (m.by ? "by " + esc(m.by) + " · " : "") + fmtTime(m.at) + "<br/>";
+    html += "</div>";
+    if (m) {
+      html += '<span class="status">✓ Present</span>';
+      if (admin) html += '<button class="mark undobtn" data-id="' + esc(r.id) + '" data-act="undo">↺ Undo (Admin)</button>';
+    } else if (isRecorder) {
+      html += '<button class="mark yes" data-id="' + esc(r.id) + '" data-act="mark">Mark present ✓</button>';
+    }
+    html += "</div>";
+  }
+  if (!rows.length) html = '<div class="empty">No matching person.<br/>Try fewer letters, or the last 4 digits of the phone.</div>';
+  $("list").innerHTML = html;
+  if (rows.length > PAGE_SIZE * page) addMoreBtn();
+}
+
+$("list").addEventListener("click", function (ev) {
+  var btn = ev.target.closest("button.mark");
+  if (!btn) return;
+  var id = btn.getAttribute("data-id");
+  var act = btn.getAttribute("data-act");
+  if (act === "mark") markPerson(id);
+  else if (act === "undo") undoPerson(id);
+});
+
+/* ---- mark / undo ---- */
+async function markPerson(id) {
+  var at = new Date().toISOString();
+  var p = { id: id, at: at };
+  // optimistic: the button flips GREEN instantly, even on a weak connection
+  pending.push(p); updateBadge();
+  renderCounts(); renderList();
+  var rec = byId[id];
+  try {
+    var res = await fetch("/api/attendance/bal/marks", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ marks: pending.map(function (x) { return { id: x.id, at: x.at }; }) })
+    });
+    if (res.ok) {
+      var data = await res.json();
+      applySyncData(data);
+      // confirmed on the server: drop our copies from the outbox
+      pending = pending.filter(function (x) { return x.id !== id || !serverMarks[x.id]; });
+      updateBadge();
+      toast(rec ? ("Marked " + rec.regNo + " (" + rec.name + ")") : "Marked present");
+      setMode(true);
+    } else if (res.status === 401) {
+      sessionExpired();
+    } else {
+      toast(res.status === 403 ? "Your account cannot mark." : "Could not save yet — kept on this device, will auto-send.");
+    }
+  } catch (e) {
+    setMode(false);
+    toast("No internet — saved on this device, sends automatically.");
+  }
+  renderCounts(); renderList();
+}
+
+async function undoPerson(id) {
+  if (!canUndo(session.role)) { toast("Only Admin can undo."); return; }
+  var rec = byId[id];
+  delete serverMarks[id];
+  pending = pending.filter(function (x) { return x.id !== id; });
+  renderCounts(); renderList();
+  try {
+    var res = await fetch("/api/attendance/bal/marks", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ unmark: [{ id: id }] })
+    });
+    if (res.ok) {
+      var data = await res.json();
+      applySyncData(data);
+      toast("Undo done — " + (rec ? rec.name : "person") + " is now Not yet.");
+      setMode(true);
+    } else if (res.status === 403) {
+      toast("Only Admin can undo a mark.");
+    } else if (res.status === 401) {
+      sessionExpired();
+    } else {
+      toast("Undo failed.");
+    }
+  } catch (e) {
+    setMode(false);
+    toast("No internet — undo will happen when back online.");
+  }
+  renderCounts(); renderList();
+}
+
+/* ================= live sync ================= */
+function applySyncData(data) {
+  if (!data) return;
+  if (data.counts) lastCounts = data.counts;
+  (data.recent || []).forEach(function (m) {
+    serverMarks[m.id] = { at: m.at, by: m.by };
+  });
+}
+
+async function flushPending() {
+  if (!pending.length) return;
+  try {
+    var res = await fetch("/api/attendance/bal/marks", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ marks: pending.map(function (x) { return { id: x.id, at: x.at }; }) })
+    });
+    if (res.ok) {
+      applySyncData(await res.json());
+      pending = pending.filter(function (x) { return !serverMarks[x.id]; });
+      updateBadge();
+    } else if (res.status === 401) {
+      sessionExpired();
+    }
+  } catch (e) { /* stay offline, retry next tick */ }
+}
+
+async function sync(showErr) {
+  $("refreshRing").textContent = "Syncing…";
+  try {
+    var res = await fetch("/api/attendance/bal/sync", { headers: { "Accept": "application/json" } });
+    if (res.status === 401) { sessionExpired(); return; }
+    if (!res.ok) throw new Error("bad status");
+    applySyncData(await res.json());
+    setMode(true);
+    await flushPending();
+  } catch (e) {
+    setMode(false);
+    if (showErr) toast("Live sync failed — will retry automatically.");
+  } finally {
+    refreshRingRestart();
+  }
+  renderCounts();
+  if (!$("markView").classList.contains("hidden")) renderList();
+  if (!$("logView").classList.contains("hidden")) renderLog();
+}
+
+function refreshRingRestart() {
+  nextSyncAt = Date.now() + REFRESH_MS;
+}
+
+function tick() {
+  var left = Math.max(0, Math.ceil((nextSyncAt - Date.now()) / 1000));
+  if ($("refreshRing").textContent.indexOf("Syncing") !== 0) {
+    $("refreshRing").textContent = online ? "Live · refresh in " + left + "s" : "Offline · retry in " + left + "s";
+  }
+  if (Date.now() >= nextSyncAt) {
+    sync(false);
+  }
+}
+
+/* ================= log view ================= */
+function renderLog() {
+  var q = $("logQ").value.trim().toLowerCase();
+  var rows = [];
+  Object.keys(serverMarks).forEach(function (id) {
+    var r = byId[id];
+    rows.push({ r: r, m: serverMarks[id] });
+  });
+  pending.forEach(function (p) {
+    if (serverMarks[p.id]) return;
+    rows.push({ r: byId[p.id], m: { at: p.at, by: session.username + " (unsent)" } });
+  });
+  rows.sort(function (a, b) { return a.m.at < b.m.at ? 1 : -1; });
+  if (q) rows = rows.filter(function (x) {
+    var label = ((x.r && (x.r.name + " " + x.r.regNo + " " + x.r.phone + " " + x.r.zoneName)) || x.m.by || "").toLowerCase();
+    return label.indexOf(q) !== -1;
+  });
+  var tb = document.querySelector("#logTable tbody");
+  if (!rows.length) { tb.innerHTML = '<tr><td colspan="5" style="color:var(--mut);padding:16px;text-align:center">Nothing marked yet.</td></tr>'; return; }
+  tb.innerHTML = rows.slice(0, LOG_CAP).map(function (x) {
+    var r = x.r || {};
+    return "<tr><td><b>" + esc(r.regNo || r.code || "—") + "</b></td><td>" + esc(r.name || "?") + "</td><td>" +
+      esc(r.sewa ? typeLabel(r.sewa) : "") + "</td><td>" + esc(x.m.by || "?") + "</td><td>" + fmtTime(x.m.at) + "</td></tr>";
+  }).join("") +
+  (rows.length > LOG_CAP ? '<tr><td colspan="5" style="color:var(--mut);text-align:center">+ ' + (rows.length - LOG_CAP) + " older marks not shown</td></tr>" : "");
+}
+$("logQ").addEventListener("input", renderLog);
+
+/* ================= admin view ================= */
+async function loadUsers() {
+  try {
+    var res = await fetch("/api/attendance/bal/users");
+    if (res.status === 403 || res.status === 401) return;
+    var data = await res.json();
+    renderUsers(data.users || []);
+  } catch (e) {}
+}
+
+function renderUsers(users) {
+  var grid = $("userGrid");
+  if (!users.length) { grid.innerHTML = '<p class="note">No users yet.</p>'; return; }
+  grid.innerHTML = users.map(function (u) {
+    return '<div class="urow"><b>' + esc(u.username) + "</b><span>" + esc(u.name || "") + '</span>' +
+      '<span class="rolechip' + (u.role === "super_admin" ? " sa" : "") + '">' + esc(u.role) + "</span>" +
+      '<span class="inchip' + (u.active ? "" : " out") + '">' + (u.active ? "active" : "inactive") + "</span>" +
+      '<button style="margin-left:auto;border:0;background:#eef2f7;color:#334155;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer" data-toggle="' + esc(u.username) + '" data-active="' + (u.active ? "0" : "1") + '">' + (u.active ? "Deactivate" : "Activate") + "</button></div>";
+  }).join("");
+}
+
+$("userGrid").addEventListener("click", async function (ev) {
+  var b = ev.target.closest("button[data-toggle]");
+  if (!b) return;
+  try {
+    var res = await fetch("/api/attendance/bal/users", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: b.getAttribute("data-toggle"), active: b.getAttribute("data-active") === "1" })
+    });
+    if (res.status === 401) { sessionExpired(); return; }
+    toast(res.ok ? "Updated." : "Not allowed.");
+    loadUsers();
+  } catch (e) { toast("Network error."); }
+});
+
+$("nuAdd").addEventListener("click", async function () {
+  var u = $("nuUser").value.trim(), n = $("nuName").value.trim(), p = $("nuPin").value.trim(), r = $("nuRole").value;
+  if (!u) { toast("Username required."); return; }
+  try {
+    var res = await fetch("/api/attendance/bal/users", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: u, name: n, password: p || undefined, role: r })
+    });
+    var data = await res.json().catch(function () { return {}; });
+    toast(res.ok ? "User saved." : data.error || "Failed.");
+    if (res.ok) { $("nuUser").value = ""; $("nuName").value = ""; $("nuPin").value = ""; loadUsers(); }
+  } catch (e) { toast("Network error."); }
+});
+
+function renderAdmin() {
+  var isSuperAdmin = canUndo(session.role);
+  show("tabAdmin", isSuperAdmin);
+  if (!isSuperAdmin) return;
+  var bt = (lastCounts && lastCounts.byType) || {};
+  var mk = function (k) {
+    var v = bt[k] || { total: 0, present: 0 };
+    return '<div class="st"><b style="color:var(--' + (k === "bal" ? "green" : k === "mahila" ? "violet" : "orange") + ')">' +
+      v.present + "/" + v.total + "</b><span>" + typeLabel(k) + " present</span></div>";
+  };
+  $("typeStats").innerHTML = mk("bal") + mk("mahila") + mk("ems");
+  loadUsers();
+}
+
+/* ================= tabs ================= */
+function setTab(name) {
+  show("markView", name === "mark"); show("logView", name === "log"); show("adminView", name === "admin");
+  [["tabMark", "mark"], ["tabLog", "log"], ["tabAdmin", "admin"]].forEach(function (t) {
+    $(t[0]).classList[t[1] === name ? "add" : "remove"]("primary");
+  });
+  if (name === "mark") renderList();
+  if (name === "log") renderLog();
+  if (name === "admin") renderAdmin();
+}
+$("tabMark").addEventListener("click", function () { setTab("mark"); });
+$("tabLog").addEventListener("click", function () { setTab("log"); });
+
+/* ================= filter inputs ================= */
+$("q").addEventListener("input", function () { page = 1; renderList(); });
+$("zoneSel").addEventListener("change", function () { page = 1; renderList(); });
+$("typeChips").addEventListener("click", function (ev) {
+  var b = ev.target.closest(".tchip");
+  if (!b) return;
+  typeFilter = b.getAttribute("data-t") || "";
+  document.querySelectorAll(".tchip").forEach(function (c) { c.classList[c === b ? "add" : "remove"]("on"); });
+  page = 1; renderList();
+});
+
+/* ================= enter / leave ================= */
+function applyRoleVisibility() {
+  var isSuperAdmin = canUndo(session.role);
+  show("tabAdmin", isSuperAdmin);
+}
+
+function enterApp() {
+  show("loadingScreen", false); show("loginScreen", false);
+  show("hdr", true); show("ftr", true); show("markView", true);
+  $("whoami").textContent = (session.name || session.username) + " · " +
+    (session.role === "super_admin" ? "Admin (can undo)" : session.role === "editor" ? "Recorder" : "Viewer (read only)");
+  applyRoleVisibility();
+  renderCounts(); fillZones(); renderList(); setTab("mark");
+  setMode(true);
+  sync(true);
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(tick, 1000);
+}
+
+function sessionExpired() {
+  if (pollTimer) clearInterval(pollTimer);
+  session = null;
+  show("hdr", false); show("ftr", false);
+  show("markView", false); show("logView", false); show("adminView", false);
+  $("inPin").value = "";
+  show("loginScreen", true);
+  toast("Session expired — please log in again.");
+}
+
+$("logoutBtn").addEventListener("click", function () {
+  if (pollTimer) clearInterval(pollTimer);
+  session = null;
+  show("hdr", false); show("ftr", false);
+  show("markView", false); show("logView", false); show("adminView", false);
+  $("inPin").value = "";
+  $("modeBadge").className = "mode off";
+  show("loginScreen", true);
+});
+
+/* ================= login ================= */
+async function tryLogin(u, p) {
+  var res = await fetch("/api/attendance/bal/login", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: u, password: p })
+  });
+  if (res.ok) {
+    var data = await res.json();
+    session = data.user;
+    return true;
+  }
+  if (res.status === 401) { $("loginErr").textContent = "Wrong username or password."; return false; }
+  $("loginErr").textContent = "Server trouble — try again in a moment."; return false;
+}
+
+$("loginBtn").addEventListener("click", doLogin);
+$("inPin").addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
+async function doLogin() {
+  var btn = $("loginBtn");
+  var u = $("inUser").value, p = $("inPin").value;
+  if (!u || !p) { $("loginErr").textContent = "Enter username and password."; return; }
+  $("loginErr").textContent = "Checking…";
+  btn.disabled = true; btn.classList.add("busy");
+  try {
+    var ok = await tryLogin(u, p);
+    if (ok) { $("loginErr").textContent = ""; loadAndEnter(); }
+  } catch (e) {
+    $("loginErr").textContent = "Network error — check internet and retry.";
+  } finally {
+    btn.disabled = false; btn.classList.remove("busy");
+  }
+}
+
+/* ================= boot ================= */
+async function loadAndEnter() {
+  show("loginScreen", false);
+  show("loadingScreen", true);
+  $("loadingText").textContent = "Loading registrations…";
+  try {
+    var res = await fetch("/api/attendance/bal/roster", { headers: { "Accept": "application/json" } });
+    if (res.status === 401) { sessionExpired(); return; }
+    if (!res.ok) throw new Error("bad");
+    var data = await res.json();
+    records = (data.roster || []).map(fromCompactRow);
+    buildIndex();
+    serverMarks = data.marks || {};
+    lastCounts = data.counts || null;
+    setMode(true);
+    enterApp();
+  } catch (e) {
+    show("loadingScreen", false); show("loginScreen", true);
+    $("loginErr").textContent = "Could not load the list — check internet and retry.";
+  }
+}
+
+// If the shared /admin/login door already authenticated this browser, skip login.
+(async function boot() {
+  try {
+    var res = await fetch("/api/attendance/bal/me");
+    if (res.ok) {
+      var data = await res.json();
+      session = data.user;
+      loadAndEnter();
+      return;
+    }
+  } catch (e) {}
+  show("loginScreen", true);
+})();
+</script>
+</body>
+</html>

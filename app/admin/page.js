@@ -756,6 +756,7 @@ export default function AdminDashboard() {
             {[
               { title: "Feedback Submission", sub: "प्रतिक्रिया जमा करें", href: "/feedback", color: "linear-gradient(135deg, #6ba2d6, #91c7e6)" },
               { title: "Bal-Mahila-EMS Pre Registrations", sub: "Bal-Mahila-EMS पूर्व पंजीकरण", href: "/gbm-ebm", color: "linear-gradient(135deg, #6ba2d6, #91c7e6)" },
+              { title: "Bal-Mahila-EMS Attendance", sub: "बाल-महिला-EMS लाइव उपस्थिति", href: "/bal-attendance.html", color: "linear-gradient(135deg, #818cf8, #38bdf8)" },
               { title: "Find me Pracharak", sub: "प्रचारक खोजें", href: "/find-pracharak", color: "linear-gradient(135deg, #6ba2d6, #91c7e6)" },
             ].map((c) => (
               <a key={c.title} href={c.href} target="_blank" rel="noopener" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", textDecoration: "none", background: c.color, color: "#fff", borderRadius: 16, padding: "22px 16px", boxShadow: "0 4px 16px rgba(107,162,214,0.25)", transition: "transform 150ms" }}

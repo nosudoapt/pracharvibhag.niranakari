@@ -15,7 +15,7 @@ export function middleware(request) {
   const { pathname } = request.nextUrl;
 
   // The login pages must always be reachable.
-  if (pathname === "/admin/login" || pathname === "/api/attendance/gp/login") {
+  if (pathname === "/admin/login" || pathname === "/api/attendance/gp/login" || pathname === "/api/attendance/bal/login") {
     return NextResponse.next();
   }
 
