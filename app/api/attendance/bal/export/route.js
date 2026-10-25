@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminIdentity } from "../../../../../lib/auth";
 import { can, ACTIONS } from "../../../../../lib/rbac";
 import { getBalRoster, getBalMarks } from "../../../../../lib/bal-attendance-db";
-import { typeLabel, istTodayISO } from "../../../../../lib/bal-attendance";
+import { typeLabel, istTodayISO, istDayOf } from "../../../../../lib/bal-attendance";
 import { buildXlsx } from "../../../../../lib/xlsx-writer";
 
 export const runtime = "nodejs";
@@ -28,7 +28,7 @@ export async function GET(request) {
     const marks = await getBalMarks();
 
     const presentToday = new Set(
-      Object.keys(marks).filter((id) => String(marks[id]?.at || "").slice(0, 10) === day)
+      Object.keys(marks).filter((id) => istDayOf(marks[id]?.at) === day)
     );
 
     const attendanceRows = [
@@ -64,7 +64,7 @@ export async function GET(request) {
       // mark log for the SELECTED day only — one row per person, no other dates
       ...Object.keys(marks)
         .map((id) => ({ id, mark: marks[id] }))
-        .filter(({ mark }) => String(mark?.at || "").slice(0, 10) === day)
+        .filter(({ mark }) => istDayOf(mark?.at) === day)
         .map(({ id, mark }) => {
           const r = roster.find((x) => x.id === id);
           return [
@@ -72,7 +72,7 @@ export async function GET(request) {
             r?.code || "",
             r?.name || "",
             typeLabel(r?.sewa || ""),
-            String(mark?.at || "").slice(0, 10),
+            istDayOf(mark?.at),
             String(mark?.at || ""),
             mark?.by || "",
           ];
