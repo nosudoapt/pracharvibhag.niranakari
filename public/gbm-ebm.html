@@ -498,6 +498,97 @@
         font-size: 0.92rem;
       }
 
+      .conclude-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 70;
+        display: none;
+        align-items: flex-end;
+        justify-content: center;
+      }
+
+      .conclude-modal.open {
+        display: flex;
+      }
+
+      .conclude-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(24, 4, 12, 0.55);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        animation: zoneFadeIn 200ms ease;
+      }
+
+      .conclude-sheet {
+        position: relative;
+        width: 100%;
+        max-height: 74vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border-radius: 28px 28px 0 0;
+        background: rgba(255, 249, 250, 0.92);
+        -webkit-backdrop-filter: blur(30px) saturate(180%);
+        backdrop-filter: blur(30px) saturate(180%);
+        border-top: 1px solid rgba(255, 255, 255, 0.65);
+        box-shadow: 0 -18px 60px rgba(40, 4, 16, 0.28);
+        animation: zoneSheetUp 300ms cubic-bezier(0.32, 0.72, 0, 1);
+      }
+
+      .conclude-handle {
+        width: 40px;
+        height: 5px;
+        border-radius: 999px;
+        background: rgba(107, 162, 214, 0.3);
+        margin: 12px auto 6px;
+        flex-shrink: 0;
+      }
+
+      .conclude-body {
+        padding: 8px 22px 18px;
+        text-align: center;
+      }
+
+      .conclude-emoji {
+        font-size: 44px;
+        line-height: 1;
+      }
+
+      .conclude-congrats {
+        margin-top: 10px;
+        font-family: "Space Grotesk", "Inter", sans-serif;
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: var(--primary);
+      }
+
+      .conclude-body h2 {
+        font-family: "Space Grotesk", "Inter", sans-serif;
+        font-size: clamp(1.2rem, 4.8vw, 1.5rem);
+        color: var(--text);
+        margin: 10px 0 6px;
+      }
+
+      .conclude-body p {
+        color: var(--muted);
+        font-size: 0.98rem;
+        line-height: 1.55;
+        margin: 0;
+      }
+
+      .conclude-close {
+        margin: 4px 18px 18px;
+        min-height: 50px;
+        border: 0;
+        border-radius: 16px;
+        background: var(--primary);
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
       .zone-picker {
         position: fixed;
         inset: 0;
@@ -943,6 +1034,21 @@
         <button class="retry-btn" id="retryBtn" type="button">🔄 Try Again / पुनः प्रयास करें</button>
       </div>
     </main>
+
+    <div class="conclude-modal" id="concludeModal" aria-hidden="true">
+      <div class="conclude-backdrop" data-conclude-close></div>
+      <div class="conclude-sheet" role="dialog" aria-modal="true" aria-label="Meeting concluded">
+        <div class="conclude-handle"></div>
+        <div class="conclude-body">
+          <div class="conclude-emoji">🙏</div>
+          <div class="conclude-congrats">Dhan Nirankar Ji! Thanks ji 🙏</div>
+          <h2>Meeting Concluded / सम्मेलन समाप्त</h2>
+          <p>Dhan Nirankar Ji, thanks ji — the meeting has been successfully concluded ji.</p>
+          <p>धन निरंकर जी, धन्यवाद जी — सम्मेलन सफलतापूर्वक समाप्त हो गया जी।</p>
+        </div>
+        <button class="conclude-close" id="concludeClose" type="button">Close / बंद करें</button>
+      </div>
+    </div>
 
     <div class="zone-picker" id="zonePicker" aria-hidden="true">
       <div class="zone-picker-backdrop" data-picker-close></div>
@@ -1423,6 +1529,34 @@
           closeZonePicker();
         }
       });
+
+      const concludeModal = document.getElementById("concludeModal");
+      const concludeClose = document.getElementById("concludeClose");
+
+      function openConcludeModal() {
+        concludeModal.classList.add("open");
+        concludeModal.setAttribute("aria-hidden", "false");
+      }
+
+      function closeConcludeModal() {
+        concludeModal.classList.remove("open");
+        concludeModal.setAttribute("aria-hidden", "true");
+      }
+
+      document.addEventListener("click", (event) => {
+        if (event.target.closest("[data-conclude-close]")) {
+          closeConcludeModal();
+        }
+      });
+
+      concludeClose.addEventListener("click", closeConcludeModal);
+
+      concludeModal.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeConcludeModal();
+      });
+
+      // Prompt everyone who opens the Bal-Mahila-EMS page with the closing note.
+      openConcludeModal();
 
       zonePickerSearch.addEventListener("input", () => {
         renderPickerResults(zonePickerSearch.value);
