@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminIdentity } from "../../../../../lib/auth";
 import { can, ACTIONS } from "../../../../../lib/rbac";
 import { getBalRoster, getBalMarks } from "../../../../../lib/bal-attendance-db";
-import { typeLabel, istTodayISO, istDayOf } from "../../../../../lib/bal-attendance";
+import { typeLabel, istDayOf } from "../../../../../lib/bal-attendance";
 import { buildXlsx } from "../../../../../lib/xlsx-writer";
 
 export const runtime = "nodejs";
@@ -19,8 +19,8 @@ export async function GET(request) {
   }
 
   try {
-    // Selected day — either ?date=YYYY-MM-DD or today in IST.
-    let day = istTodayISO();
+    // Selected day — either ?date=YYYY-MM-DD or the single attendance day (25 Oct 2026).
+    let day = "2026-10-25";
     const q = new URL(request.url).searchParams.get("date");
     if (q && /^\d{4}-\d{2}-\d{2}$/.test(q)) day = q;
 

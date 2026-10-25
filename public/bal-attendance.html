@@ -761,9 +761,8 @@ async function doLogin() {
 }
 
 /* ================= attendance list download (Excel) ================= */
-function todayISO() { var n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0") + "-" + String(n.getDate()).padStart(2, "0"); }
 document.getElementById("btnExcel").addEventListener("click", function () {
-  window.open("/api/attendance/bal/export?date=" + encodeURIComponent(todayISO()), "_blank");
+  window.open("/api/attendance/bal/export?date=2026-10-25", "_blank");
 });
 
 /* ================= boot ================= */
